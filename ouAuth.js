@@ -1,6 +1,6 @@
 (function () {
     // === НАСТРОЙКА ВИДЖЕТА ===
-    const GITHUB_RAW_URL = "ЗАМЕНИ_НА_СВОЮ_ССЫЛКУ_НА_RAW_TXT_ФАЙЛ";
+    const GITHUB_RAW_URL = "https://raw.githubusercontent.com/oulan1/ouAuth/refs/heads/main/users.txt";
     const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000; // 1 месяц
 
     // Стили для Liquid Glass, анимаций и блокировок
