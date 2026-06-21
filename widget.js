@@ -157,7 +157,7 @@
         }
     `;
 
-    // Инъекция стилей (работает в head без проблем)
+    // Стили внедряются сразу в head
     const styleSheet = document.createElement("style");
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
@@ -167,17 +167,12 @@
     function generateSessionKey() { return 'ou-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15); }
     function updateBatteryColor(el, battery) { const hue = Math.floor(battery.level * 120); el.style.color = `hsl(${hue}, 100%, 65%)`; el.style.textShadow = `0 0 12px hsl(${hue}, 100%, 40%)`; }
 
-    // Конвертер кода страны (RU, US) в Emoji флаг
     function getFlagEmoji(countryCode) {
         if (!countryCode) return "🌐";
-        const codePoints = countryCode
-            .toUpperCase()
-            .split('')
-            .map(char =>  127397 + char.charCodeAt(0));
+        const codePoints = countryCode.toUpperCase().split('').map(char => 127397 + char.charCodeAt(0));
         return String.fromCodePoint(...codePoints);
     }
 
-    // Хранилище гео-данных
     let cachedGeoString = "Определение...";
     async function fetchGeoLocation() {
         try {
@@ -185,20 +180,14 @@
             if (!response.ok) throw new Error();
             const data = await response.json();
             if (data.status === 'success') {
-                const flag = getFlagEmoji(data.countryCode);
-                cachedGeoString = `${flag} ${data.country}`;
-            } else {
-                cachedGeoString = "🌐 Unknown";
-            }
-        } catch (e) {
-            cachedGeoString = "🌐 Ошибка GEO";
-        }
+                cachedGeoString = `${getFlagEmoji(data.countryCode)} ${data.country}`;
+            } else { cachedGeoString = "🌐 Unknown"; }
+        } catch (e) { cachedGeoString = "🌐 Ошибка GEO"; }
         const geoEl = document.getElementById('ouadminGeo');
         if (geoEl) geoEl.innerText = cachedGeoString;
     }
     fetchGeoLocation();
 
-    // Детектор ОС и Браузера
     function getDeviceInfo() {
         const ua = navigator.userAgent;
         let os = "Неизвестная ОС", browser = "Неизвестный браузер";
@@ -215,30 +204,20 @@
         else if (/firefox|fxios/i.test(ua)) browser = "Firefox";
         else if (/safari/i.test(ua)) browser = "Safari";
         
-        const type = /mobile/i.test(ua) ? "(Мобильное)" : "(ПК)";
-        return `${os} | ${browser} ${type}`;
+        return `${os} | ${browser} ${/mobile/i.test(ua) ? "(Мобильное)" : "(ПК)"}`;
     }
 
-    // Безопасная вставка элементов в DOM (ждет body, если его еще нет)
-    function runWhenBodyReady(callback) {
-        if (document.body) {
-            callback();
-        } else {
-            document.addEventListener("DOMContentLoaded", callback);
-        }
-    }
-
-    // Проверка сессии
-    const sessionStr = localStorage.getItem("ouAuth_session");
-    if (sessionStr) {
-        const session = JSON.parse(sessionStr);
-        if (Date.now() - session.timestamp < SESSION_LIFETIME_MS) {
-            session.timestamp = Date.now();
-            if(!session.key) session.key = generateSessionKey();
-            localStorage.setItem("ouAuth_session", JSON.stringify(session));
-            
-            // Безопасно выводим Dynamic Island
-            runWhenBodyReady(() => {
+    // === ГЛАВНАЯ ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ ===
+    function initWidget() {
+        const sessionStr = localStorage.getItem("ouAuth_session");
+        if (sessionStr) {
+            const session = JSON.parse(sessionStr);
+            if (Date.now() - session.timestamp < SESSION_LIFETIME_MS) {
+                session.timestamp = Date.now();
+                if(!session.key) session.key = generateSessionKey();
+                localStorage.setItem("ouAuth_session", JSON.stringify(session));
+                
+                // Отрисовка Dynamic Island
                 const island = document.createElement("div");
                 island.className = "ouauth-dynamic-island";
                 island.innerHTML = `<span class="ouauth-island-text">С возвращением, <span id="ouAuthLoginColor">${session.login}</span>!</span>`;
@@ -254,17 +233,15 @@
                     loginEl.style.color = "#d8b4fe"; loginEl.style.textShadow = "0 0 10px rgba(216, 180, 254, 0.5)";
                 }
                 setTimeout(() => island.remove(), 5500);
-            });
 
-            initAdminTriggers();
-            return;
+                initAdminTriggers();
+                return;
+            }
         }
-    }
 
-    // Если не авторизован — вешаем оверлей блокировки (тоже безопасно)
-    document.documentElement.classList.add('ouauth-locked');
-    
-    runWhenBodyReady(() => {
+        // Блокировка сайта, если сессии нет
+        document.documentElement.classList.add('ouauth-locked');
+        
         const overlay = document.createElement("div");
         overlay.className = "ouauth-overlay";
         overlay.innerHTML = `
@@ -347,7 +324,7 @@
                 submitBtn.innerText = "Войти"; submitBtn.disabled = false;
             }
         });
-    });
+    }
 
     let adminOverlay = null; let clockFrame = null;
 
@@ -436,5 +413,12 @@
         adminOverlay.classList.remove('active');
         cancelAnimationFrame(clockFrame);
         setTimeout(() => { adminOverlay.remove(); adminOverlay = null; }, 400);
+    }
+
+    // БЕЗОПАСНЫЙ СТАРТ: Скрипт ждёт body перед запуском ЛЮБОЙ логики интерфейса
+    if (document.body) {
+        initWidget();
+    } else {
+        document.addEventListener("DOMContentLoaded", initWidget);
     }
 })();
