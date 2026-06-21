@@ -157,7 +157,7 @@
         }
     `;
 
-    // Инъекция стилей
+    // Инъекция стилей (работает в head без проблем)
     const styleSheet = document.createElement("style");
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
@@ -177,7 +177,7 @@
         return String.fromCodePoint(...codePoints);
     }
 
-    // Хранилище гео-данных, чтобы не спамить запросами
+    // Хранилище гео-данных
     let cachedGeoString = "Определение...";
     async function fetchGeoLocation() {
         try {
@@ -193,11 +193,9 @@
         } catch (e) {
             cachedGeoString = "🌐 Ошибка GEO";
         }
-        // Если панель уже открыта во время завершения запроса — обновляем интерфейс
         const geoEl = document.getElementById('ouadminGeo');
         if (geoEl) geoEl.innerText = cachedGeoString;
     }
-    // Запускаем фоновый сбор гео-позиции сразу при старте скрипта
     fetchGeoLocation();
 
     // Детектор ОС и Браузера
@@ -221,6 +219,15 @@
         return `${os} | ${browser} ${type}`;
     }
 
+    // Безопасная вставка элементов в DOM (ждет body, если его еще нет)
+    function runWhenBodyReady(callback) {
+        if (document.body) {
+            callback();
+        } else {
+            document.addEventListener("DOMContentLoaded", callback);
+        }
+    }
+
     // Проверка сессии
     const sessionStr = localStorage.getItem("ouAuth_session");
     if (sessionStr) {
@@ -230,111 +237,116 @@
             if(!session.key) session.key = generateSessionKey();
             localStorage.setItem("ouAuth_session", JSON.stringify(session));
             
-            const island = document.createElement("div");
-            island.className = "ouauth-dynamic-island";
-            island.innerHTML = `<span class="ouauth-island-text">С возвращением, <span id="ouAuthLoginColor">${session.login}</span>!</span>`;
-            document.body.appendChild(island);
-            
-            const loginEl = document.getElementById("ouAuthLoginColor");
-            if ('getBattery' in navigator) {
-                navigator.getBattery().then(battery => {
-                    updateBatteryColor(loginEl, battery);
-                    battery.addEventListener('levelchange', () => updateBatteryColor(loginEl, battery));
-                }).catch(() => { loginEl.style.color = "#d8b4fe"; });
-            } else {
-                loginEl.style.color = "#d8b4fe"; loginEl.style.textShadow = "0 0 10px rgba(216, 180, 254, 0.5)";
-            }
+            // Безопасно выводим Dynamic Island
+            runWhenBodyReady(() => {
+                const island = document.createElement("div");
+                island.className = "ouauth-dynamic-island";
+                island.innerHTML = `<span class="ouauth-island-text">С возвращением, <span id="ouAuthLoginColor">${session.login}</span>!</span>`;
+                document.body.appendChild(island);
+                
+                const loginEl = document.getElementById("ouAuthLoginColor");
+                if ('getBattery' in navigator) {
+                    navigator.getBattery().then(battery => {
+                        updateBatteryColor(loginEl, battery);
+                        battery.addEventListener('levelchange', () => updateBatteryColor(loginEl, battery));
+                    }).catch(() => { loginEl.style.color = "#d8b4fe"; });
+                } else {
+                    loginEl.style.color = "#d8b4fe"; loginEl.style.textShadow = "0 0 10px rgba(216, 180, 254, 0.5)";
+                }
+                setTimeout(() => island.remove(), 5500);
+            });
 
-            setTimeout(() => island.remove(), 5500);
             initAdminTriggers();
             return;
         }
     }
 
-    // Если не авторизован — вешаем оверлей блокировки
+    // Если не авторизован — вешаем оверлей блокировки (тоже безопасно)
     document.documentElement.classList.add('ouauth-locked');
     
-    const overlay = document.createElement("div");
-    overlay.className = "ouauth-overlay";
-    overlay.innerHTML = `
-        <div class="ouauth-card" id="ouauthCard">
-            <h2>ouAuth</h2>
-            <div class="ouauth-input-group"><input type="text" id="ouauthLogin" placeholder="Логин" autocomplete="off"></div>
-            <div class="ouauth-input-group"><input type="password" id="ouauthPassword" placeholder="Пароль"></div>
-            <button class="ouauth-btn" id="ouauthSubmit">Войти</button>
-            <div class="ouauth-error" id="ouauthError">Неверный логин или пароль</div>
-        </div>
-    `;
-    document.body.prepend(overlay);
+    runWhenBodyReady(() => {
+        const overlay = document.createElement("div");
+        overlay.className = "ouauth-overlay";
+        overlay.innerHTML = `
+            <div class="ouauth-card" id="ouauthCard">
+                <h2>ouAuth</h2>
+                <div class="ouauth-input-group"><input type="text" id="ouauthLogin" placeholder="Логин" autocomplete="off"></div>
+                <div class="ouauth-input-group"><input type="password" id="ouauthPassword" placeholder="Пароль"></div>
+                <button class="ouauth-btn" id="ouauthSubmit">Войти</button>
+                <div class="ouauth-error" id="ouauthError">Неверный логин или пароль</div>
+            </div>
+        `;
+        document.body.prepend(overlay);
 
-    overlay.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-    overlay.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && e.maxTouchPoints > 1) e.preventDefault(); });
-    overlay.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
-    overlay.addEventListener('copy', (e) => e.preventDefault());
-    overlay.addEventListener('contextmenu', (e) => e.preventDefault());
+        overlay.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+        overlay.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && e.maxTouchPoints > 1) e.preventDefault(); });
+        overlay.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+        overlay.addEventListener('copy', (e) => e.preventDefault());
+        overlay.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    const submitBtn = document.getElementById("ouauthSubmit");
-    const errorEl = document.getElementById("ouauthError");
+        const submitBtn = document.getElementById("ouauthSubmit");
+        const errorEl = document.getElementById("ouauthError");
 
-    submitBtn.addEventListener("click", async () => {
-        const inputLogin = document.getElementById("ouauthLogin").value.trim();
-        const inputPass = document.getElementById("ouauthPassword").value.trim();
-        if (!inputLogin || !inputPass) return;
+        submitBtn.addEventListener("click", async () => {
+            const inputLogin = document.getElementById("ouauthLogin").value.trim();
+            const inputPass = document.getElementById("ouauthPassword").value.trim();
+            if (!inputLogin || !inputPass) return;
 
-        const startTime = performance.now();
-        submitBtn.innerText = "Проверка..."; submitBtn.disabled = true;
+            const startTime = performance.now();
+            submitBtn.innerText = "Проверка..."; submitBtn.disabled = true;
 
-        try {
-            const response = await fetch(`${GITHUB_RAW_URL}?t=${Date.now()}`);
-            if (!response.ok) throw new Error();
-            const rawBase64 = await response.text();
-            const decodedText = decodeBase64(rawBase64.trim());
-            
-            let isAuthenticated = false;
-            for (let line of decodedText.split(/\r?\n/)) {
-                const parts = line.split(" - ");
-                if (parts.length === 2 && parts[0].trim() === inputLogin && parts[1].trim() === inputPass) {
-                    isAuthenticated = true; break;
-                }
-            }
-
-            if (isAuthenticated) {
-                const totalTimeMs = (performance.now() - startTime).toFixed(0);
-                const displayTime = totalTimeMs < 1000 ? `${totalTimeMs} мс` : `${(totalTimeMs/1000).toFixed(2)} сек`;
-
-                localStorage.setItem("ouAuth_session", JSON.stringify({ login: inputLogin, timestamp: Date.now(), loginTime: Date.now(), key: generateSessionKey() }));
-
-                const card = document.getElementById("ouauthCard");
-                card.style.opacity = "0"; card.style.transform = "scale(0.8) translateY(20px)";
+            try {
+                const response = await fetch(`${GITHUB_RAW_URL}?t=${Date.now()}`);
+                if (!response.ok) throw new Error();
+                const rawBase64 = await response.text();
+                const decodedText = decodeBase64(rawBase64.trim());
                 
-                setTimeout(() => {
-                    card.remove();
-                    overlay.classList.add("success-tint");
-                    const successCard = document.createElement("div");
-                    successCard.className = "ouauth-success-card";
-                    successCard.innerHTML = `
-                        <h3>Привет, ${inputLogin}!</h3>
-                        <p>Успешный вход за <b>${displayTime}</b></p>
-                    `;
-                    overlay.appendChild(successCard);
+                let isAuthenticated = false;
+                for (let line of decodedText.split(/\r?\n/)) {
+                    const parts = line.split(" - ");
+                    if (parts.length === 2 && parts[0].trim() === inputLogin && parts[1].trim() === inputPass) {
+                        isAuthenticated = true; break;
+                    }
+                }
 
+                if (isAuthenticated) {
+                    const totalTimeMs = (performance.now() - startTime).toFixed(0);
+                    const displayTime = totalTimeMs < 1000 ? `${totalTimeMs} мс` : `${(totalTimeMs/1000).toFixed(2)} сек`;
+
+                    localStorage.setItem("ouAuth_session", JSON.stringify({ login: inputLogin, timestamp: Date.now(), loginTime: Date.now(), key: generateSessionKey() }));
+
+                    const card = document.getElementById("ouauthCard");
+                    card.style.opacity = "0"; card.style.transform = "scale(0.8) translateY(20px)";
+                    
                     setTimeout(() => {
-                        overlay.style.opacity = "0";
+                        card.remove();
+                        overlay.classList.add("success-tint");
+                        const successCard = document.createElement("div");
+                        successCard.className = "ouauth-success-card";
+                        successCard.innerHTML = `
+                            <h3>Привет, ${inputLogin}!</h3>
+                            <p>Успешный вход за <b>${displayTime}</b></p>
+                        `;
+                        overlay.appendChild(successCard);
+
                         setTimeout(() => {
-                            overlay.remove();
-                            document.documentElement.classList.remove('ouauth-locked');
-                            initAdminTriggers();
-                        }, 500);
-                    }, 4000); 
-                }, 500);
-            } else {
-                errorEl.innerText = "Неверный логин или пароль"; errorEl.style.display = "block";
+                            overlay.style.opacity = "0";
+                            setTimeout(() => {
+                                overlay.remove();
+                                document.documentElement.classList.remove('ouauth-locked');
+                                initAdminTriggers();
+                            }, 500);
+                        }, 4000); 
+                    }, 500);
+                } else {
+                    errorEl.innerText = "Неверный логин или пароль"; errorEl.style.display = "block";
+                    submitBtn.innerText = "Войти"; submitBtn.disabled = false;
+                }
+            } catch (err) {
+                errorEl.innerText = "Ошибка сервера авторизации"; errorEl.style.display = "block";
                 submitBtn.innerText = "Войти"; submitBtn.disabled = false;
             }
-        } catch (err) {
-            errorEl.innerText = "Ошибка сервера авторизации"; errorEl.style.display = "block";
-            submitBtn.innerText = "Войти"; submitBtn.disabled = false;
-        }
+        });
     });
 
     let adminOverlay = null; let clockFrame = null;
