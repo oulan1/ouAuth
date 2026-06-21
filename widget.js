@@ -2,7 +2,7 @@
     // === НАСТРОЙКА ВИДЖЕТА ===
     const GITHUB_RAW_URL = "https://raw.githubusercontent.com/oulan1/ouAuth/refs/heads/main/users.txt";
     const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000; // 1 месяц
-    const VERSION = "v 0.6 BETA";
+    const VERSION = "v 0.7 BETA";
 
     // Стили виджета
     const styles = `
@@ -15,30 +15,40 @@
             margin: 0; padding: 0;
         }
 
-        /* Оверлей: теперь полностью прозрачный с эффектом размытия заднего плана */
+        /* ЖЕСТКАЯ БЛОКИРОВКА КОПИРОВАНИЯ ДЛЯ МОБИЛЬНЫХ И ПК */
+        .ouauth-no-select {
+            -webkit-touch-callout: none !important; /* Отключаем долгое нажатие на iOS */
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            user-select: none !important;
+        }
+        /* Разрешаем выделение только внутри инпутов, иначе нельзя будет ввести текст */
+        .ouauth-no-select input {
+            -webkit-touch-callout: default !important;
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
+            user-select: text !important;
+        }
+
+        /* ОВЕРЛЕЙ: Аппаратное ускорение для мобильного блюра */
         .ouauth-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100dvh;
-            background: rgba(10, 5, 15, 0.65);
+            background: rgba(10, 5, 15, 0.35); /* Сделано прозрачнее для эффекта стекла */
             backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+            transform: translateZ(0); will-change: backdrop-filter; /* Форсируем GPU на телефонах */
             z-index: 999999; display: flex; align-items: center; justify-content: center;
             font-family: 'Inter', sans-serif; transition: background 0.8s ease, opacity 0.5s ease;
             touch-action: none; padding-bottom: env(safe-area-inset-bottom);
             box-sizing: border-box;
         }
 
-        /* Фиолетовый полупрозрачный блюр при успешном входе */
         .ouauth-overlay.success-tint {
-            background: rgba(76, 29, 149, 0.4);
+            background: rgba(76, 29, 149, 0.35);
             backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%);
         }
 
-        /* Защита от выделения текста ТОЛЬКО для компонентов ouAuth */
-        .ouauth-overlay, .ouauth-admin-overlay, .ouauth-dynamic-island {
-            user-select: none !important; -webkit-user-select: none !important;
-            -ms-user-select: none !important; -moz-user-select: none !important;
-        }
-
-        /* Адаптивная карточка: не доходит до краев, но выглядит плотно */
         .ouauth-card {
             width: calc(100% - 40px); max-width: 380px; padding: 40px 30px;
             background: rgba(25, 18, 35, 0.45); border: 1px solid rgba(255, 255, 255, 0.12);
@@ -121,8 +131,8 @@
         /* АДМИН ПАНЕЛЬ */
         .ouauth-admin-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100dvh;
-            background: rgba(5, 5, 8, 0.85); backdrop-filter: blur(40px) saturate(150%); -webkit-backdrop-filter: blur(40px) saturate(150%);
-            z-index: 10000000; font-family: 'JetBrains Mono', monospace; color: #fff;
+            background: rgba(5, 5, 8, 0.75); backdrop-filter: blur(40px) saturate(150%); -webkit-backdrop-filter: blur(40px) saturate(150%);
+            transform: translateZ(0); z-index: 10000000; font-family: 'JetBrains Mono', monospace; color: #fff;
             opacity: 0; transition: opacity 0.4s ease; display: none; padding: 30px; box-sizing: border-box;
         }
         .ouauth-admin-overlay.active { display: block; opacity: 1; }
@@ -171,12 +181,10 @@
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
 
-    // Вспомогательные методы защиты и декодирования
     function decodeBase64(str) { try { return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')); } catch(e) { return atob(str); } }
     function generateSessionKey() { return 'ou-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15); }
     function updateBatteryColor(el, battery) { const hue = Math.floor(battery.level * 120); el.style.color = `hsl(${hue}, 100%, 65%)`; el.style.textShadow = `0 0 12px hsl(${hue}, 100%, 40%)`; }
 
-    // Конвертер кода страны в Emoji
     function getFlagEmoji(countryCode) {
         if (!countryCode) return "🌐";
         const codePoints = countryCode.toUpperCase().split('').map(char => 127397 + char.charCodeAt(0));
@@ -217,13 +225,25 @@
         return `${os} | ${browser} ${/mobile/i.test(ua) ? "(Мобильное)" : "(ПК)"}`;
     }
 
-    // Жесткая блокировка копирования и контекстного меню внутри переданного элемента
+    // Умная блокировка копирования через JS (запрет выделения, драг-н-дропа, ПКМ)
     function applyHardRestrictions(element) {
-        element.addEventListener('copy', (e) => { e.stopPropagation(); e.preventDefault(); });
-        element.addEventListener('contextmenu', (e) => { e.stopPropagation(); e.preventDefault(); });
+        element.classList.add('ouauth-no-select');
+        
+        // Разрешаем события только если кликнули по инпуту
+        const blockEvent = (e) => {
+            if (e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        };
+
+        element.addEventListener('copy', blockEvent);
+        element.addEventListener('contextmenu', blockEvent);
+        element.addEventListener('selectstart', blockEvent);
+        element.addEventListener('dragstart', blockEvent);
     }
 
-    // ОСНОВНАЯ ЛОГИКА ИНИЦИАЛИЗАЦИИ
     function initWidget() {
         const sessionStr = localStorage.getItem("ouAuth_session");
         if (sessionStr) {
@@ -234,7 +254,7 @@
                 localStorage.setItem("ouAuth_session", JSON.stringify(session));
                 
                 const island = document.createElement("div");
-                island.className = "ouauth-dynamic-island";
+                island.className = "ouauth-dynamic-island ouauth-no-select";
                 island.innerHTML = `<span class="ouauth-island-text">С возвращением, <span id="ouAuthLoginColor">${session.login}</span>!</span>`;
                 document.body.appendChild(island);
                 applyHardRestrictions(island);
@@ -255,11 +275,10 @@
             }
         }
 
-        // Если не авторизован — вешаем оверлей блокировки
         document.documentElement.classList.add('ouauth-locked');
         
         const overlay = document.createElement("div");
-        overlay.className = "ouauth-overlay";
+        overlay.className = "ouauth-overlay ouauth-no-select";
         overlay.innerHTML = `
             <div class="ouauth-card" id="ouauthCard">
                 <h2>ouAuth</h2>
@@ -381,7 +400,7 @@
         if (!session) return;
 
         adminOverlay = document.createElement('div');
-        adminOverlay.className = 'ouauth-admin-overlay';
+        adminOverlay.className = 'ouauth-admin-overlay ouauth-no-select';
         
         adminOverlay.innerHTML = `
             <div class="ouadmin-close" id="ouadminClose"></div>
@@ -431,7 +450,6 @@
         setTimeout(() => { adminOverlay.remove(); adminOverlay = null; }, 400);
     }
 
-    // Безопасный запуск после построения дерева DOM
     if (document.body) {
         initWidget();
     } else {
