@@ -10,41 +10,50 @@
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
         
         html.ouauth-locked, html.ouauth-locked body {
-            background-color: #050507 !important;
             height: 100%; min-height: 100dvh;
             overflow: hidden; overscroll-behavior-y: none;
             margin: 0; padding: 0;
         }
 
+        /* Оверлей: теперь полностью прозрачный с эффектом размытия заднего плана */
         .ouauth-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100dvh;
-            background: rgba(10, 5, 15, 0.5);
-            backdrop-filter: blur(50px) saturate(200%); -webkit-backdrop-filter: blur(50px) saturate(200%);
+            background: rgba(10, 5, 15, 0.65);
+            backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
             z-index: 999999; display: flex; align-items: center; justify-content: center;
             font-family: 'Inter', sans-serif; transition: background 0.8s ease, opacity 0.5s ease;
-            user-select: none; -webkit-user-select: none; touch-action: none;
-            padding-bottom: env(safe-area-inset-bottom);
+            touch-action: none; padding-bottom: env(safe-area-inset-bottom);
+            box-sizing: border-box;
         }
 
+        /* Фиолетовый полупрозрачный блюр при успешном входе */
         .ouauth-overlay.success-tint {
-            background: rgba(40, 10, 70, 0.4);
-            backdrop-filter: blur(60px) saturate(250%); -webkit-backdrop-filter: blur(60px) saturate(250%);
+            background: rgba(76, 29, 149, 0.4);
+            backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%);
         }
 
+        /* Защита от выделения текста ТОЛЬКО для компонентов ouAuth */
+        .ouauth-overlay, .ouauth-admin-overlay, .ouauth-dynamic-island {
+            user-select: none !important; -webkit-user-select: none !important;
+            -ms-user-select: none !important; -moz-user-select: none !important;
+        }
+
+        /* Адаптивная карточка: не доходит до краев, но выглядит плотно */
         .ouauth-card {
-            width: 85%; max-width: 320px; padding: 40px 30px;
-            background: rgba(40, 30, 50, 0.25); border: 1px solid rgba(255, 255, 255, 0.15);
+            width: calc(100% - 40px); max-width: 380px; padding: 40px 30px;
+            background: rgba(25, 18, 35, 0.45); border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 32px; text-align: center; color: #ffffff;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9), inset 0 2px 10px rgba(255, 255, 255, 0.1), inset 0 -2px 10px rgba(168, 85, 247, 0.15);
-            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 2px 10px rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-sizing: border-box;
         }
 
         .ouauth-card h2 {
             font-size: 32px; font-weight: 700; margin: 0 0 30px 0;
             background: linear-gradient(135deg, #ffffff, #c084fc, #8b5cf6);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            text-shadow: 0 10px 30px rgba(168, 85, 247, 0.4); letter-spacing: -1px;
+            text-shadow: 0 10px 30px rgba(168, 85, 247, 0.3); letter-spacing: -1px;
         }
 
         .ouauth-input-group { margin-bottom: 20px; text-align: left; position: relative; }
@@ -80,13 +89,13 @@
         .ouauth-success-card {
             background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
             color: #0f172a; padding: 35px 25px; border-radius: 32px;
-            width: 85%; max-width: 320px; text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.5); box-shadow: 0 40px 80px rgba(0, 0, 0, 0.7);
+            width: calc(100% - 40px); max-width: 380px; text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.5); box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5);
             animation: ouauthPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            box-sizing: border-box;
         }
         .ouauth-success-card h3 { font-size: 22px; margin: 0 0 15px 0; font-weight: 700; color: #000; }
         .ouauth-success-card p { font-size: 15px; color: #334155; line-height: 1.5; margin: 0; }
-        .ouauth-success-card span.highlight { color: #7c3aed; font-weight: 800; }
 
         @keyframes ouauthPop { from { transform: scale(0.8) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
 
@@ -157,20 +166,21 @@
         }
     `;
 
-    // Инъекция стилей происходит сразу
+    // Инъекция стилей
     const styleSheet = document.createElement("style");
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
 
-    // Вспомогательные методы
+    // Вспомогательные методы защиты и декодирования
     function decodeBase64(str) { try { return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')); } catch(e) { return atob(str); } }
     function generateSessionKey() { return 'ou-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15); }
     function updateBatteryColor(el, battery) { const hue = Math.floor(battery.level * 120); el.style.color = `hsl(${hue}, 100%, 65%)`; el.style.textShadow = `0 0 12px hsl(${hue}, 100%, 40%)`; }
 
+    // Конвертер кода страны в Emoji
     function getFlagEmoji(countryCode) {
         if (!countryCode) return "🌐";
         const codePoints = countryCode.toUpperCase().split('').map(char => 127397 + char.charCodeAt(0));
-        return String.fromPoint(...codePoints);
+        return String.fromCodePoint(...codePoints);
     }
 
     let cachedGeoString = "Определение...";
@@ -207,7 +217,13 @@
         return `${os} | ${browser} ${/mobile/i.test(ua) ? "(Мобильное)" : "(ПК)"}`;
     }
 
-    // === ОСНОВНАЯ ЛОГИКА ===
+    // Жесткая блокировка копирования и контекстного меню внутри переданного элемента
+    function applyHardRestrictions(element) {
+        element.addEventListener('copy', (e) => { e.stopPropagation(); e.preventDefault(); });
+        element.addEventListener('contextmenu', (e) => { e.stopPropagation(); e.preventDefault(); });
+    }
+
+    // ОСНОВНАЯ ЛОГИКА ИНИЦИАЛИЗАЦИИ
     function initWidget() {
         const sessionStr = localStorage.getItem("ouAuth_session");
         if (sessionStr) {
@@ -221,6 +237,7 @@
                 island.className = "ouauth-dynamic-island";
                 island.innerHTML = `<span class="ouauth-island-text">С возвращением, <span id="ouAuthLoginColor">${session.login}</span>!</span>`;
                 document.body.appendChild(island);
+                applyHardRestrictions(island);
                 
                 const loginEl = document.getElementById("ouAuthLoginColor");
                 if ('getBattery' in navigator) {
@@ -231,14 +248,14 @@
                 } else {
                     loginEl.style.color = "#d8b4fe"; loginEl.style.textShadow = "0 0 10px rgba(216, 180, 254, 0.5)";
                 }
-                setTimeout(() => island.remove(), 5500);
 
+                setTimeout(() => island.remove(), 5500);
                 initAdminTriggers();
                 return;
             }
         }
 
-        // Запуск интерфейса блокировки
+        // Если не авторизован — вешаем оверлей блокировки
         document.documentElement.classList.add('ouauth-locked');
         
         const overlay = document.createElement("div");
@@ -253,12 +270,11 @@
             </div>
         `;
         document.body.prepend(overlay);
+        applyHardRestrictions(overlay);
 
         overlay.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
         overlay.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && e.maxTouchPoints > 1) e.preventDefault(); });
         overlay.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
-        overlay.addEventListener('copy', (e) => e.preventDefault());
-        overlay.addEventListener('contextmenu', (e) => e.preventDefault());
 
         const submitBtn = document.getElementById("ouauthSubmit");
         const errorEl = document.getElementById("ouauthError");
@@ -268,8 +284,8 @@
             const inputPass = document.getElementById("ouauthPassword").value.trim();
             if (!inputLogin || !inputPass) return;
 
-            const startTime = performance.now();
             submitBtn.innerText = "Проверка..."; submitBtn.disabled = true;
+            const startTime = performance.now();
 
             try {
                 const response = await fetch(`${GITHUB_RAW_URL}?t=${Date.now()}`);
@@ -387,6 +403,7 @@
             </div>
         `;
         document.body.appendChild(adminOverlay);
+        applyHardRestrictions(adminOverlay);
         setTimeout(() => adminOverlay.classList.add('active'), 10);
 
         function updateClock() {
@@ -414,11 +431,10 @@
         setTimeout(() => { adminOverlay.remove(); adminOverlay = null; }, 400);
     }
 
-    // ЖЁСТКИЙ ЦИКЛИЧЕСКИЙ МОНИТОРИНГ BODY (Решает проблему file:///)
-    const bodyCheckInterval = setInterval(() => {
-        if (document && document.body) {
-            clearInterval(bodyCheckInterval);
-            initWidget();
-        }
-    }, 5); // Проверяем каждые 5 миллисекунд до победного конца
+    // Безопасный запуск после построения дерева DOM
+    if (document.body) {
+        initWidget();
+    } else {
+        document.addEventListener("DOMContentLoaded", initWidget);
+    }
 })();
