@@ -2,7 +2,7 @@
     // === НАСТРОЙКА ВИДЖЕТА ===
     const GITHUB_RAW_URL = "https://raw.githubusercontent.com/oulan1/ouAuth/refs/heads/main/users.txt";
     const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000; // 1 месяц
-    const VERSION = "v 0.5 BETA";
+    const VERSION = "v 0.6 BETA";
 
     // Стили виджета
     const styles = `
@@ -157,12 +157,12 @@
         }
     `;
 
-    // Стили внедряются сразу в head
+    // Инъекция стилей происходит сразу
     const styleSheet = document.createElement("style");
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
 
-    // Вспомогательные функции
+    // Вспомогательные методы
     function decodeBase64(str) { try { return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')); } catch(e) { return atob(str); } }
     function generateSessionKey() { return 'ou-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15); }
     function updateBatteryColor(el, battery) { const hue = Math.floor(battery.level * 120); el.style.color = `hsl(${hue}, 100%, 65%)`; el.style.textShadow = `0 0 12px hsl(${hue}, 100%, 40%)`; }
@@ -170,7 +170,7 @@
     function getFlagEmoji(countryCode) {
         if (!countryCode) return "🌐";
         const codePoints = countryCode.toUpperCase().split('').map(char => 127397 + char.charCodeAt(0));
-        return String.fromCodePoint(...codePoints);
+        return String.fromPoint(...codePoints);
     }
 
     let cachedGeoString = "Определение...";
@@ -207,7 +207,7 @@
         return `${os} | ${browser} ${/mobile/i.test(ua) ? "(Мобильное)" : "(ПК)"}`;
     }
 
-    // === ГЛАВНАЯ ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ ===
+    // === ОСНОВНАЯ ЛОГИКА ===
     function initWidget() {
         const sessionStr = localStorage.getItem("ouAuth_session");
         if (sessionStr) {
@@ -217,7 +217,6 @@
                 if(!session.key) session.key = generateSessionKey();
                 localStorage.setItem("ouAuth_session", JSON.stringify(session));
                 
-                // Отрисовка Dynamic Island
                 const island = document.createElement("div");
                 island.className = "ouauth-dynamic-island";
                 island.innerHTML = `<span class="ouauth-island-text">С возвращением, <span id="ouAuthLoginColor">${session.login}</span>!</span>`;
@@ -239,7 +238,7 @@
             }
         }
 
-        // Блокировка сайта, если сессии нет
+        // Запуск интерфейса блокировки
         document.documentElement.classList.add('ouauth-locked');
         
         const overlay = document.createElement("div");
@@ -415,10 +414,11 @@
         setTimeout(() => { adminOverlay.remove(); adminOverlay = null; }, 400);
     }
 
-    // БЕЗОПАСНЫЙ СТАРТ: Скрипт ждёт body перед запуском ЛЮБОЙ логики интерфейса
-    if (document.body) {
-        initWidget();
-    } else {
-        document.addEventListener("DOMContentLoaded", initWidget);
-    }
+    // ЖЁСТКИЙ ЦИКЛИЧЕСКИЙ МОНИТОРИНГ BODY (Решает проблему file:///)
+    const bodyCheckInterval = setInterval(() => {
+        if (document && document.body) {
+            clearInterval(bodyCheckInterval);
+            initWidget();
+        }
+    }, 5); // Проверяем каждые 5 миллисекунд до победного конца
 })();
