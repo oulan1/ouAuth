@@ -2,7 +2,7 @@
     // === НАСТРОЙКА ВИДЖЕТА ===
     const GITHUB_RAW_URL = "https://raw.githubusercontent.com/oulan1/ouAuth/refs/heads/main/users.txt";
     const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000; // 1 месяц
-    const VERSION = "v 0.7 BETA";
+    const VERSION = "v 0.75 BETA";
 
     // Стили виджета
     const styles = `
@@ -365,7 +365,7 @@
     function initAdminTriggers() {
         let rCount = 0; let rTimeout;
         window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'r') {
+            if (e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'к') {
                 rCount++; clearTimeout(rTimeout);
                 rTimeout = setTimeout(() => rCount = 0, 1500);
                 if (rCount === 5) { rCount = 0; openAdminPanel(); }
